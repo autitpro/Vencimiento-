@@ -1,0 +1,10 @@
+{
+  "name": "Remix Control de Vencimientos",
+  "description": "Aplicación sencilla para registrar productos con foto y fecha de vencimiento, con alertas automáticas a 10 días del vencimiento.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
