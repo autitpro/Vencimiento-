@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A food or household item with expiry date tracking",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "expiryDate": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "isConsumed": { "type": "boolean" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["name", "expiryDate", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A registered user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "displayName"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of tracked products"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Registered user accounts"
+    }
+  }
+}

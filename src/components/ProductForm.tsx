@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Camera, Upload, Calendar, Plus, Check, Image as ImageIcon, X } from 'lucide-react';
-import { ProductItem, calculateDaysRemaining, formatSpanishDate } from '../types';
+import { Camera, Upload, Calendar, Plus, Check, Image as ImageIcon, X, User, UserPlus, Loader2, AlertCircle } from 'lucide-react';
+import { ProductItem, UserProfile, calculateDaysRemaining, formatSpanishDate } from '../types';
 import { CameraCaptureModal } from './CameraCaptureModal';
 
 interface ProductFormProps {
-  onAddProduct: (product: Omit<ProductItem, 'id' | 'createdAt' | 'isConsumed'>) => void;
+  onAddProduct: (product: Omit<ProductItem, 'id' | 'createdAt' | 'isConsumed'>) => Promise<string | void>;
+  currentUser?: UserProfile | null;
+  onOpenAuth?: () => void;
 }
 
-export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct }) => {
+export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct, currentUser, onOpenAuth }) => {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('General');
   const [expiryDate, setExpiryDate] = useState('');
@@ -16,6 +18,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct }) => {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Quick date helper
   const setDaysFromToday = (days: number) => {
@@ -40,30 +44,48 @@ export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!expiryDate) return;
+    if (!expiryDate || isSubmitting) return;
 
-    // Fallback photo if none provided
-    const finalImage = imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&auto=format&fit=crop&q=80';
-    const finalName = name.trim() || 'Producto sin nombre';
+    setIsSubmitting(true);
+    setSubmitError(null);
 
-    onAddProduct({
-      name: finalName,
-      category,
-      imageUrl: finalImage,
-      expiryDate,
-      notes: notes.trim()
-    });
+    try {
+      // Fallback photo if none provided
+      const finalImage = imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&auto=format&fit=crop&q=80';
+      const finalName = name.trim() || 'Producto sin nombre';
+      const creatorName = currentUser?.displayName || currentUser?.email?.split('@')[0];
 
-    // Reset form
-    setName('');
-    setCategory('General');
-    setExpiryDate('');
-    setImageUrl('');
-    setNotes('');
-    setFeedbackSuccess(true);
-    setTimeout(() => setFeedbackSuccess(false), 3000);
+      const productPayload: Omit<ProductItem, 'id' | 'createdAt' | 'isConsumed'> = {
+        name: finalName,
+        category,
+        imageUrl: finalImage,
+        expiryDate,
+        notes: notes.trim(),
+      };
+
+      // Only attach createdBy if a non-empty name exists, preventing Firestore 'undefined' error
+      if (creatorName && creatorName.trim()) {
+        productPayload.createdBy = creatorName.trim();
+      }
+
+      await onAddProduct(productPayload);
+
+      // Reset form ONLY on confirmed success
+      setName('');
+      setCategory('General');
+      setExpiryDate('');
+      setImageUrl('');
+      setNotes('');
+      setFeedbackSuccess(true);
+      setTimeout(() => setFeedbackSuccess(false), 3500);
+    } catch (err: any) {
+      console.error('Error al guardar en Firestore:', err);
+      setSubmitError(err?.message || 'Error al conectar con Firestore. Intenta de nuevo.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const daysRemaining = expiryDate ? calculateDaysRemaining(expiryDate) : null;
@@ -75,7 +97,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct }) => {
       id="product-entry-card"
       className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm transition-all"
     >
-      <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-4 mb-5 border-b border-slate-100 dark:border-slate-800">
         <div>
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
@@ -88,12 +110,40 @@ export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct }) => {
           </p>
         </div>
 
-        {feedbackSuccess && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-semibold rounded-full animate-bounce">
-            <Check className="w-3.5 h-3.5" /> ¡Producto registrado!
-          </span>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {currentUser ? (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">
+              <User className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+              <span>Cargando como: <strong>{currentUser.displayName}</strong></span>
+            </div>
+          ) : (
+            onOpenAuth && (
+              <button
+                type="button"
+                onClick={onOpenAuth}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-emerald-50 dark:bg-slate-800 dark:hover:bg-emerald-950/50 border border-slate-200 dark:border-slate-700 hover:border-emerald-300 text-[11px] text-slate-600 dark:text-slate-300 hover:text-emerald-700 transition-colors"
+                title="Registrarse o identificarse"
+              >
+                <UserPlus className="w-3 h-3 text-slate-400" />
+                <span>Acceso libre · <span className="underline font-semibold text-emerald-600 dark:text-emerald-400">Registrarse</span></span>
+              </button>
+            )
+          )}
+
+          {feedbackSuccess && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-semibold rounded-full animate-bounce">
+              <Check className="w-3.5 h-3.5" /> ¡Producto registrado en Cloud Firestore!
+            </span>
+          )}
+        </div>
       </div>
+
+      {submitError && (
+        <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <span>{submitError}</span>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -285,11 +335,20 @@ export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct }) => {
             <button
               type="submit"
               id="submit-product-btn"
-              disabled={!expiryDate}
+              disabled={!expiryDate || isSubmitting}
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-sm transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
             >
-              <Plus className="w-4 h-4" />
-              Guardar y Monitorear Vencimiento
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Guardando en Cloud Firestore...
+                </>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4" />
+                  Guardar y Monitorear Vencimiento
+                </>
+              )}
             </button>
           </div>
         </div>

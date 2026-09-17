@@ -9,16 +9,17 @@ import {
   AlertCircle, 
   Edit3, 
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ProductItem, getProductExpirationStatus, formatSpanishDate } from '../types';
 
 interface ProductCardProps {
   product: ProductItem;
-  onToggleConsumed: (id: string) => void;
-  onDelete: (id: string) => void;
-  onUpdateExpiryDate: (id: string, newDate: string) => void;
+  onToggleConsumed: (id: string) => Promise<void> | void;
+  onDelete: (id: string) => Promise<void> | void;
+  onUpdateExpiryDate: (id: string, newDate: string) => Promise<void> | void;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -29,27 +30,60 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [editedDate, setEditedDate] = useState(product.expiryDate);
+  const [isUpdatingConsumed, setIsUpdatingConsumed] = useState(false);
+  const [isSavingDate, setIsSavingDate] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
   const status = getProductExpirationStatus(product);
 
-  const handleMarkConsumed = () => {
-    if (!product.isConsumed) {
-      try {
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.8 }
-        });
-      } catch (e) {
-        // ignore confetti error
+  const handleMarkConsumed = async () => {
+    if (isUpdatingConsumed) return;
+    setIsUpdatingConsumed(true);
+    setCardError(null);
+    try {
+      await onToggleConsumed(product.id);
+      if (!product.isConsumed) {
+        try {
+          confetti({
+            particleCount: 50,
+            spread: 60,
+            origin: { y: 0.8 }
+          });
+        } catch {
+          // ignore confetti error
+        }
       }
+    } catch (err: any) {
+      setCardError('Error al actualizar en Firestore');
+    } finally {
+      setIsUpdatingConsumed(false);
     }
-    onToggleConsumed(product.id);
   };
 
-  const handleSaveDate = () => {
-    if (editedDate) {
-      onUpdateExpiryDate(product.id, editedDate);
+  const handleSaveDate = async () => {
+    if (!editedDate || isSavingDate) return;
+    setIsSavingDate(true);
+    setCardError(null);
+    try {
+      await onUpdateExpiryDate(product.id, editedDate);
       setIsEditingDate(false);
+    } catch (err: any) {
+      setCardError('Error al guardar fecha en Firestore');
+    } finally {
+      setIsSavingDate(false);
+    }
+  };
+
+  const handleDeleteClick = async () => {
+    if (isDeleting) return;
+    setCardError(null);
+    setIsDeleting(true);
+    try {
+      await onDelete(product.id);
+    } catch (err: any) {
+      setCardError(err?.message || 'Error al eliminar producto');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -113,6 +147,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {product.name}
           </h3>
 
+          {product.createdBy && (
+            <p className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+              Cargado por: <span className="text-slate-600 dark:text-slate-300 font-semibold">{product.createdBy}</span>
+            </p>
+          )}
+
           {/* Expiration Date Info / Date Editor */}
           <div className="mt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
             <div className="flex items-center gap-1.5 font-medium">
@@ -144,16 +184,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               />
               <button
                 onClick={handleSaveDate}
-                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg transition"
+                disabled={isSavingDate}
+                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg transition disabled:opacity-50 inline-flex items-center gap-1"
               >
+                {isSavingDate && <Loader2 className="w-3 h-3 animate-spin" />}
                 Guardar
               </button>
               <button
                 onClick={() => setIsEditingDate(false)}
+                disabled={isSavingDate}
                 className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
               >
                 Cancelar
               </button>
+            </div>
+          )}
+
+          {cardError && (
+            <div className="mt-2 p-2 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 text-[11px] flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              <span>{cardError}</span>
             </div>
           )}
 
@@ -217,13 +267,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <button
             id={`mark-consumed-btn-${product.id}`}
             onClick={handleMarkConsumed}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+            disabled={isUpdatingConsumed || isDeleting}
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition disabled:opacity-50 ${
               product.isConsumed
                 ? 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'
                 : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
             }`}
           >
-            {product.isConsumed ? (
+            {isUpdatingConsumed ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Actualizando...
+              </>
+            ) : product.isConsumed ? (
               <>
                 <RotateCcw className="w-3.5 h-3.5" />
                 Desmarcar
@@ -239,11 +295,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* Delete button */}
           <button
             id={`delete-product-btn-${product.id}`}
-            onClick={() => onDelete(product.id)}
-            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+            onClick={handleDeleteClick}
+            disabled={isDeleting || isUpdatingConsumed}
+            className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition disabled:opacity-50"
             title="Eliminar producto"
           >
-            <Trash2 className="w-4 h-4" />
+            {isDeleting ? (
+              <Loader2 className="w-4 h-4 animate-spin text-rose-500" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
           </button>
         </div>
       </div>

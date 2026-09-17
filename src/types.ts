@@ -7,6 +7,15 @@ export interface ProductItem {
   notes?: string;
   createdAt: string;
   isConsumed?: boolean;
+  createdBy?: string;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  createdAt?: string;
 }
 
 export type ProductStatusType = 'expired' | 'expiring_soon' | 'safe' | 'consumed';
