@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Camera, Upload, Calendar, Plus, Check, Image as ImageIcon, X, User, UserPlus, Loader2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Camera, Upload, Calendar, Plus, Check, Image as ImageIcon, X, User, UserPlus, Loader2, AlertCircle, Search, Sparkles } from 'lucide-react';
 import { ProductItem, UserProfile, calculateDaysRemaining, formatSpanishDate } from '../types';
 import { CameraCaptureModal } from './CameraCaptureModal';
 
@@ -7,12 +7,27 @@ interface ProductFormProps {
   onAddProduct: (product: Omit<ProductItem, 'id' | 'createdAt' | 'isConsumed'>) => Promise<string | void>;
   currentUser?: UserProfile | null;
   onOpenAuth?: () => void;
+  onOpenSearchGrounding?: (productName: string, category: string) => void;
+  suggestedExpiryDate?: string;
 }
 
-export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct, currentUser, onOpenAuth }) => {
+export const ProductForm: React.FC<ProductFormProps> = ({ 
+  onAddProduct, 
+  currentUser, 
+  onOpenAuth,
+  onOpenSearchGrounding,
+  suggestedExpiryDate
+}) => {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('General');
   const [expiryDate, setExpiryDate] = useState('');
+
+  // Sync external suggested date if provided
+  useEffect(() => {
+    if (suggestedExpiryDate) {
+      setExpiryDate(suggestedExpiryDate);
+    }
+  }, [suggestedExpiryDate]);
   const [imageUrl, setImageUrl] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -233,9 +248,23 @@ export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct, currentU
           <div className="space-y-4 flex flex-col justify-between">
             {/* Product Name */}
             <div>
-              <label htmlFor="product-name-input" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                Nombre del Producto
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="product-name-input" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Nombre del Producto
+                </label>
+                {onOpenSearchGrounding && (
+                  <button
+                    type="button"
+                    id="btn-search-shelf-life-grounding"
+                    onClick={() => onOpenSearchGrounding(name, category)}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition"
+                    title="Consultar vida útil y fecha sugerida con Google Search"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>Consultar caducidad en Google</span>
+                  </button>
+                )}
+              </div>
               <input
                 id="product-name-input"
                 type="text"
@@ -265,6 +294,17 @@ export const ProductForm: React.FC<ProductFormProps> = ({ onAddProduct, currentU
               {/* Fast Date Helper Chips */}
               <div className="flex flex-wrap items-center gap-1.5 mt-2">
                 <span className="text-[11px] text-slate-400 dark:text-slate-500">Atajos:</span>
+                {onOpenSearchGrounding && (
+                  <button
+                    type="button"
+                    id="shortcut-grounding-btn"
+                    onClick={() => onOpenSearchGrounding(name, category)}
+                    className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition inline-flex items-center gap-1"
+                  >
+                    <Search className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                    <span>Sugerir con Google</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   id="shortcut-3-days-btn"

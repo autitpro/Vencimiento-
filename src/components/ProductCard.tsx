@@ -10,7 +10,8 @@ import {
   Edit3, 
   RotateCcw,
   Sparkles,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ProductItem, getProductExpirationStatus, formatSpanishDate } from '../types';
@@ -20,13 +21,15 @@ interface ProductCardProps {
   onToggleConsumed: (id: string) => Promise<void> | void;
   onDelete: (id: string) => Promise<void> | void;
   onUpdateExpiryDate: (id: string, newDate: string) => Promise<void> | void;
+  onSearchGrounding?: (productName: string, category?: string) => void;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onToggleConsumed,
   onDelete,
-  onUpdateExpiryDate
+  onUpdateExpiryDate,
+  onSearchGrounding
 }) => {
   const [isEditingDate, setIsEditingDate] = useState(false);
   const [editedDate, setEditedDate] = useState(product.expiryDate);
@@ -163,14 +166,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               </strong>
             </div>
 
-            <button
-              id={`edit-date-btn-${product.id}`}
-              onClick={() => setIsEditingDate(!isEditingDate)}
-              className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition p-1"
-              title="Cambiar fecha de vencimiento"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-1">
+              {onSearchGrounding && (
+                <button
+                  id={`google-tips-btn-${product.id}`}
+                  type="button"
+                  onClick={() => onSearchGrounding(product.name, product.category)}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 text-[10px] font-semibold border border-blue-200 dark:border-blue-800 transition"
+                  title="Consultar conservación y caducidad en Google Search"
+                >
+                  <Search className="w-3 h-3 text-blue-500" />
+                  <span>Google Tips</span>
+                </button>
+              )}
+              <button
+                id={`edit-date-btn-${product.id}`}
+                onClick={() => setIsEditingDate(!isEditingDate)}
+                className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition p-1"
+                title="Cambiar fecha de vencimiento"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Inline Date Editor */}

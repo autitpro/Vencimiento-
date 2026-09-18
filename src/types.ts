@@ -114,3 +114,22 @@ export function getProductExpirationStatus(product: ProductItem, alertThreshold 
     isAlert10Days: false
   };
 }
+
+export interface GroundingSource {
+  title: string;
+  url: string;
+}
+
+export interface ShelfLifeInsight {
+  productName: string;
+  category?: string;
+  summary: string;
+  estimatedShelfLife: string;
+  suggestedDays?: number;
+  storageRecommendations: string[];
+  spoilageSigns: string[];
+  groundingSources: GroundingSource[];
+  searchQueries?: string[];
+  isFallback?: boolean;
+  errorDetail?: string;
+}
